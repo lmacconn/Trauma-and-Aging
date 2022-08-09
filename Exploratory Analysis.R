@@ -25,11 +25,7 @@ dxPOI <- data %>% select(prison, homeless, combatzone, long_term_hospital, long_
   add_p()
 dxPOI
 
-###Mean outcomes by 
-rxPOI <- data %>% group_by(race, prison) %>% 
-  summarise(Count=n(), 
-            Mean.IL6 = round(mean(IL6), digits = 2),
-            Mean.TNF1 = round(mean(TNF1), digits=2), 
-            Mean.CRP = round(mean(CRP), digits=2),
-            Mean.CMV = round(mean(CMV), digits=2), 
-  )
+###Outcome data RaceXPOI
+
+xtabs(IL6~prison+race, data = data)
+xtabs(CRP~prison+race, data = data)

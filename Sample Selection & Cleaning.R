@@ -51,7 +51,7 @@ m12012 <- m1_12[,c("HHID", "PN", "NM002", "NM004", "NM005", "NM006", "NM007", "N
 
 ###Read in tracker file
 tracker <- read_sas("trk2020tr_r.sas7bdat")
-
+library(dplyr)
 ###Select all participants who completed a HRS Core from 2006-2016
 tracker06_16 <- tracker %>% filter(KIWWAVE == 1 | LIWWAVE == 1 | MIWWAVE == 1 | NIWWAVE == 1 | OIWWAVE == 1 | PIWWAVE == 1)
 nrow(tracker06_16)
@@ -109,6 +109,7 @@ vbs_tracker$OUTCOME = ifelse(is.na(vbs_tracker$PIL6) | is.na(vbs_tracker$PCRP) |
 vbs_complete = vbs_tracker %>% filter(OUTCOME == 1)
 
 ##Now merge in the LHS and RAND results
+library(stringr)
 lhs$HHID = lhs$hhid ##recode ID variables for merging
 lhs$PN = lhs$pn
 
@@ -261,7 +262,12 @@ data$CDM_N = log( ( (data$CD4M + data$CD8M)/ (data$CD4N+data$CD8N) ))
 hist(data$CDM_N)
 
 ###Disability Variable (Use Section M1 or M2-functional limitation as proxy for disability)
-data$reports_limitation = ifelse(data$NM002 == 1 | data$NM006 == 1 | data$NM007 == 1 | data$NM008 == 1 | data$OM002==1 | data$OM006==1 | data$OM007==1 | data$OM008==1, "Yes", "No") ##If answers yes to any limitations question, consider yes
+data$yes_limits = ifelse(data$NM002 == 1 | data$NM006 == 1 | data$NM007 == 1 | data$NM008 == 1 | data$OM002==1 | data$OM006==1 | data$OM007==1 | data$OM008==1, "Yes", "No") ##If answers yes to any limitations question, consider yes
+data$no_limits = ifelse( (data$yes_limits != "Yes") & (data$NM002<6 | data$NM006<6 | data$NM007<6 | data$NM008<6 | data$OM002<6 | data$OM006<6 | data$OM007<6 | data$OM008<6), "No", data$yes_limits)
+
+data$no_limits = ifelse(is.na(data$NM002) & is.na(data$NM006) & is.na(data$NM007) & is.na(data$NM008) & is.na(data$OM002) & is.na(data$OM006) & is.na(data$OM007) & is.na(data$OM008), NA, "No")
+
+data$limits = ifelse( (is.na(data$reports_limitation) & (data$OM002!=5 & data$NM002!=5 & data$OM006!=5 & data$OM007!=5 & data$OM008!=5 & data$NM006!=5 & data$NM007!=5 & data$NM008!=5)) | data$reports_limitation == "Yes", data$reports_limitation, "No") 
 data$limitation_lifelong = ifelse(data$reports_limitation == "Yes" & (data$OM009==9995 | data$NM009==9995), "Yes", "No")
 
 ###determing age (before or after 18) of disability if not lifelong 
