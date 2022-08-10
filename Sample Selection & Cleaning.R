@@ -287,10 +287,11 @@ data$limit_yearv4 = ifelse(data$limit_yearv3<3000, data$limit_yearv3-data$birthy
 data$limitation_childhood = ifelse(data$limit_yearv4 < 18, "Yes", "No")
 
 ###Creating Early in Life Disability 
-data$limitations_lifetime = ifelse(data$limitation_lifelong == "Yes" | data$limitation_childhood =="Yes", "Childhood", "Adult")
-data$limitations = ifelse(is.na(data$limitations_lifetime), data$limits, data$limitations_lifetime) ###This is the final disability variable 
+data$limit_time = ifelse(data$limitation_lifelong == "Yes" | data$limitation_childhood =="Yes", "Childhood", "Adult")
+data$limit_time2 = ifelse(is.na(data$limit_time) & is.na(data$limitation_lifelong) & data$limitation_childhood > 18, "Adult", data$limit_time)
+data$limit=ifelse(is.na(data$limit_time2), data$limits, data$limit_time2)
+data$LIMIT = ifelse(is.na(data$limit), "Missing", data$limit)
 
-data$LIMIT = ifelse(is.na(data$limitations), "Missing", data$limitations)
 ###Variable Cleaning & Histograms for Effect Modifiers
 
 data$age = scale(data$R13AGEY_E, scale=FALSE) ###? Use scaled age or non scaled (hist appear same, but interpretations differ)
