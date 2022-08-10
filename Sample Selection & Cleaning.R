@@ -229,10 +229,11 @@ data <- data %>% mutate(race = case_when(
   RARACEM == 1 ~ "White",
   RARACEM == 2 ~ "Black",
   RARACEM== 3 ~ "Other",
-  RARACEM == NA ~ "Missing"
 ))
 
-data$race_ethinicity = paste(data$ethinicity, data$race)
+data$race1 = ifelse(is.na(data$race), "Missing", data$race)
+data$RACE = ifelse(data$race1=="Other", data$race_ethinicity , data$race1)
+data$race_ethinicity = paste(data$hispanic, data$race)
 data$sex_race = paste(data$sex, data$race)
 
 
@@ -305,10 +306,8 @@ nrow(data[which(is.na(data$smoking_status)),])
 data$SMOKE=ifelse(is.na(data$smoking_status), "Missing", data$smoking_status)
 
 ###For parent SES, use cumulative of mom and dads years of education 
-data$pses1 = ifelse(is.na(data$RAMEDUC) & is.na(data$RAFEDUC), "Missing", data$RAMEDUC+data$RAFEDUC)
-data$pses2 = ifelse(is.na(data$pses1) & is.na(data$RAFEDUC), data$RAMEDUC, data$pses1)
-data$parent_ses = ifelse(is.na(data$pses2) & is.na(data$RAMEDUC), data$RAFEDUC, data$pses2) ##final variable
-
+data$pses1 = ifelse(is.na(data$RAMEDUC), data$RAFEDUC, data$RAMEDUC+data$RAFEDUC)
+data$parent_ses = ifelse(is.na(data$pses1) & is.na(data$RAFEDUC), data$RAMEDUC, data$pses1) ##final variable
 
 
 hist(data$RAEDYRS) ##Use raedyrs for respondent SES?
@@ -320,6 +319,7 @@ library(survey)
 library(srvyr)
 data_w <- data %>% as_survey_design(weights = PVBSWGTR)
 
-
+save(data, file="TES_data_nowgts.Rdata")
+save(data_w, file="TES_data_wgts.Rdata")
 
 
