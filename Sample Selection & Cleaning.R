@@ -198,8 +198,13 @@ nrow(data[which((data$homeless_lhs == "Yes" | data$homeless_lbs == "Yes") & data
 nrow(data[which((data$homeless_lhs == "Yes" | data$homeless_lbs == "Yes") & is.na(data$homeless)),]) 
 nrow(data[which((data$homeless_lbs == "No" | data$homeless_lhs == "No") & is.na(data$homeless)),])
 
-###POI factor variable names: homeless, prison, orphanage, foster, long_term_hospital, long_term_pysch, combatzone, naturaldisater
-
+###Creating categorical for missing (aids in exploratory)
+data$PRISON= ifelse(is.na(data$prison), "Missing", data$prison)
+data$UNHOUSED= ifelse(is.na(data$homeless), "Missing", data$homeless)
+data$LTHOSP= ifelse(is.na(data$long_term_hospital), "Missing", factor(data$long_term_hospital))
+data$LTPSYCH=ifelse(is.na(data$long_term_pysch), "Missing", data$long_term_pysch)
+data$COMBAT=ifelse(is.na(data$combatzone), "Missing", data$combatzone)
+data$NATDIST=ifelse(is.na(data$naturaldisater), "Missing", data$naturaldisater)
 
 ###Create cumulative trauma score
 data$o = ifelse(data$orphanage == "Yes", 1, 0)
@@ -215,17 +220,20 @@ data$cumlative_score = rowSums(data[,c("o","f","p","lth","c","h","ltp","nd")], n
 
 ###Cleaning and recoding effect modifiers/confounders
 
-data$sex = ifelse(data$RAGENDER == 1, "Male", "Female")
-data$hispanic = ifelse(data$RAHISPAN == 0, "Not hispanic", "Hispanic")
+data$sex1 = ifelse(data$RAGENDER == 1, "Male", "Female")
+data$sex = ifelse(is.na(data$sex1), "Missing", data$sex1) ##Have missing labeled
+data$hispanic1 = ifelse(data$RAHISPAN == 0, "Not hispanic", "Hispanic")
+data$hispanic = ifelse(is.na(data$hispanic1), "Missing", data$hispanic1)
 
 data <- data %>% mutate(race = case_when(
   RARACEM == 1 ~ "White",
   RARACEM == 2 ~ "Black",
-  RARACEM== 3 ~ "Other"
+  RARACEM== 3 ~ "Other",
+  RARACEM == NA ~ "Missing"
 ))
 
 data$race_ethinicity = paste(data$ethinicity, data$race)
-data$gender_race = paste(data$gender, data$race)
+data$sex_race = paste(data$sex, data$race)
 
 
 ###Recode Outcome Variables
@@ -263,12 +271,11 @@ hist(data$CDM_N)
 
 ###Disability Variable (Use Section M1 or M2-functional limitation as proxy for disability)
 data$yes_limits = ifelse(data$NM002 == 1 | data$NM006 == 1 | data$NM007 == 1 | data$NM008 == 1 | data$OM002==1 | data$OM006==1 | data$OM007==1 | data$OM008==1, "Yes", "No") ##If answers yes to any limitations question, consider yes
-data$no_limits = ifelse( (data$yes_limits != "Yes") & (data$NM002<6 | data$NM006<6 | data$NM007<6 | data$NM008<6 | data$OM002<6 | data$OM006<6 | data$OM007<6 | data$OM008<6), "No", data$yes_limits)
+data$no_limits = ifelse(is.na(data$NM002) & is.na(data$NM006) & is.na(data$NM007) & is.na(data$NM008) & is.na(data$OM002) & is.na(data$OM006) & is.na(data$OM007) & is.na(data$OM008), NA, "No") ###Recode so anyone who answered gets a no, anyone with no answers gets NA
+data$limits = ifelse(is.na(data$yes_limits), data$no_limits, data$yes_limits) ###This variable states whether or not they reported disability 
 
-data$no_limits = ifelse(is.na(data$NM002) & is.na(data$NM006) & is.na(data$NM007) & is.na(data$NM008) & is.na(data$OM002) & is.na(data$OM006) & is.na(data$OM007) & is.na(data$OM008), NA, "No")
 
-data$limits = ifelse( (is.na(data$reports_limitation) & (data$OM002!=5 & data$NM002!=5 & data$OM006!=5 & data$OM007!=5 & data$OM008!=5 & data$NM006!=5 & data$NM007!=5 & data$NM008!=5)) | data$reports_limitation == "Yes", data$reports_limitation, "No") 
-data$limitation_lifelong = ifelse(data$reports_limitation == "Yes" & (data$OM009==9995 | data$NM009==9995), "Yes", "No")
+data$limitation_lifelong = ifelse(data$limits == "Yes" & (data$OM009==9995 | data$NM009==9995), "Yes", "No") ###Determines whether limitation from birth 
 
 ###determing age (before or after 18) of disability if not lifelong 
 data$limit_yearv1 = ifelse(data$OM009 < data$NM009, data$OM009, data$NM009)
@@ -280,17 +287,32 @@ data$limitation_childhood = ifelse(data$limit_yearv4 < 18, "Yes", "No")
 
 ###Creating Early in Life Disability 
 data$limitations_lifetime = ifelse(data$limitation_lifelong == "Yes" | data$limitation_childhood =="Yes", "Childhood", "Adult")
-data$limitations = ifelse(is.na(data$limitations_lifetime), "No", data$limitations_lifetime)
+data$limitations = ifelse(is.na(data$limitations_lifetime), data$limits, data$limitations_lifetime) ###This is the final disability variable 
+
+data$LIMIT = ifelse(is.na(data$limitations), "Missing", data$limitations)
 ###Variable Cleaning & Histograms for Effect Modifiers
 
 data$age = scale(data$R13AGEY_E, scale=FALSE) ###? Use scaled age or non scaled (hist appear same, but interpretations differ)
+
 hist(data$age)
 hist(data$R13AGEY_E)
 
+nrow(data[which(is.na(data$R13AGEY_E)),]) ##No missing age data
+
 ###Is this correct way to code for smoking (yes if ever or now smoke?)
 data$smoking_status= ifelse(data$R13SMOKEN == 1 | data$R13SMOKEV == 1, "Yes", "No")
-data$parent_education = data$RAMEDUC + data$RAFEDUC ##For parents SES, use cumlative of mom and dads education years?
-hist(data$RAEDYRS) ##Use raedyrs for respondant SES?
+nrow(data[which(is.na(data$smoking_status)),]) 
+data$SMOKE=ifelse(is.na(data$smoking_status), "Missing", data$smoking_status)
+
+###For parent SES, use cumulative of mom and dads years of education 
+data$pses1 = ifelse(is.na(data$RAMEDUC) & is.na(data$RAFEDUC), "Missing", data$RAMEDUC+data$RAFEDUC)
+data$pses2 = ifelse(is.na(data$pses1) & is.na(data$RAFEDUC), data$RAMEDUC, data$pses1)
+data$parent_ses = ifelse(is.na(data$pses2) & is.na(data$RAMEDUC), data$RAFEDUC, data$pses2) ##final variable
+
+
+
+hist(data$RAEDYRS) ##Use raedyrs for respondent SES?
+
 
 ###Add sample weights
 install.packages("srvyr")
