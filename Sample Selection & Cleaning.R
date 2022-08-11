@@ -313,6 +313,7 @@ data$parent_ses = ifelse(is.na(data$pses1) & is.na(data$RAFEDUC), data$RAMEDUC, 
 
 hist(data$RAEDYRS) ##Use raedyrs for respondent SES?
 
+###What if we remove all confounders (sex, race, limitations) with missing data?
 
 ###Add sample weights
 install.packages("srvyr")
@@ -323,4 +324,8 @@ data_w <- data %>% as_survey_design(weights = PVBSWGTR)
 save(data, file="TES_data_nowgts.Rdata")
 save(data_w, file="TES_data_wgts.Rdata")
 
+data_cNA = data[which(!is.na(data$sex1) & data$RACE!="Missing" & !is.na(data$limits)),]
+nrow(data_cNA)
 
+data_noNA= data[which(!is.na(data$R13AGEY_E) & !is.na(data$smoking_status) & !is.na(data$RAEDYRS) & !is.na(data$parent_ses) & !is.na(data$R13BMI) & !is.na(data$R13HLTC) & !is.na(data$R13SHLTC) & !is.na(data$R13CONDE) & !is.na(data$R13CESD)),]
+nrow(data_noNA)

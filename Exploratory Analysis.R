@@ -8,8 +8,6 @@ summarystat <- data %>% select(RACE, sex, R13AGEY_E, IL6, CRP, TNF1, CMV_sero, C
             Mean.Age = mean(R13AGEY_E))
 summarystat
 
-
-
 ###Assess correlation of POI variables 
 data_c <- data_w %>% select(p, h, c, lth, ltp, nd)
 model.matrix(~0+., data=data_c) %>% cor(use="pairwise.complete.obs") %>%
@@ -17,7 +15,7 @@ model.matrix(~0+., data=data_c) %>% cor(use="pairwise.complete.obs") %>%
 ###Seemingly a strong correlation between prison/homelessness, long-term-hospitalization and long-term-pysch 
 
 ###Assessing correlation of limitations and POI
-data_c <- data %>% select(LIMIT, p, h, c, lth, ltp, nd)
+data_c <- data %>% select(LIMIT, p, h, c, lth, ltp, nd) 
 model.matrix(~0+., data=data_c) %>% cor(use="pairwise.complete.obs") %>%
   ggcorrplot(show.diag = F, type="lower", lab=TRUE, lab_size=2)
 
@@ -26,8 +24,8 @@ model.matrix(~0+., data=data_c) %>% cor(use="pairwise.complete.obs") %>%
 ###Outcome: (None, as we selected for full outcome data)
 data%>%select(IL6, CRP, TNF1, CMV_sero, CMV, CD4_CD8, CD8_CD4, CD8M_N, CD4M_N, CDM_N)%>%
   tbl_summary()
-###Confounders
-data %>% select(RACE, sex, LIMIT)%>%
+###Con founders
+data %>% select(RACE, sex, LIMIT, limits)%>%
   tbl_summary(type=everything()~"categorical") 
 ###POI
 data %>% select(PRISON, UNHOUSED, LTHOSP, LTPSYCH, COMBAT, NATDIST, cumlative_score) %>%
@@ -53,7 +51,7 @@ data%>%select(LIMIT,IL6, CRP, TNF1, CMV, CD4_CD8, CD8_CD4, CD8M_N, CD4M_N, CDM_N
   mutate(LIMIT=factor(LIMIT, levels=c("Yes", "Adult", "Childhood", "No", "Missing")))%>%
   tbl_summary(by=LIMIT)%>%
   add_p() %>%
-  bold_p(t=0.05)
+  bold_p(t=0.05) ###For when Limits is coded to consider lifetime period when reported (or began)
 
 ###CMV Re activity by confounder 
 data%>%select(sex, CMV_sero) %>%
