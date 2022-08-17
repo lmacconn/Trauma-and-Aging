@@ -47,8 +47,7 @@ data%>%select(sex,IL6, CRP, TNF1, CMV, CD4_CD8, CD8_CD4, CD8M_N, CD4M_N, CDM_N)%
   add_p() %>%
   bold_p(t=0.05)
 
-data%>%select(LIMIT,IL6, CRP, TNF1, CMV, CD4_CD8, CD8_CD4, CD8M_N, CD4M_N, CDM_N)%>%
-  mutate(LIMIT=factor(LIMIT, levels=c("Yes", "Adult", "Childhood", "No", "Missing")))%>%
+data_noNA%>%select(limits,IL6, CRP, TNF1, CMV, CD4_CD8, CD8_CD4, CD8M_N, CD4M_N, CDM_N)%>%
   tbl_summary(by=LIMIT)%>%
   add_p() %>%
   bold_p(t=0.05) ###For when Limits is coded to consider lifetime period when reported (or began)
@@ -74,9 +73,8 @@ data %>% select(sex, PRISON, UNHOUSED, LTHOSP, LTPSYCH, COMBAT, NATDIST, cumlati
   tbl_summary(by=sex) %>%
   add_p(test= everything()~"chisq.test")
 
-data %>% select(LIMIT, PRISON, UNHOUSED, LTHOSP, LTPSYCH, COMBAT, NATDIST, cumlative_score) %>%
-  mutate(LIMIT=factor(LIMIT, levels=c("Yes", "Adult", "Childhood", "No", "Missing")))%>%
-  tbl_summary(by=LIMIT)%>%
+data_noNA %>% select(limit, PRISON, UNHOUSED, LTHOSP, LTPSYCH, COMBAT, NATDIST, cumlative_score) %>%
+  tbl_summary(by=limit)%>%
   add_p(test= everything()~"chisq.test") 
 
 ###Assessing continuous variables and correlation 
