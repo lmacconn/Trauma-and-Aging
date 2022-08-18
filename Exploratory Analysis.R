@@ -2,82 +2,79 @@ library(ggcorrplot)
 library(ggplot2)
 library(kableExtra)
 ###Assessing cell sizes for stratification and general statistics 
-summarystat <- data %>% select(RACE, sex, R13AGEY_E, IL6, CRP, TNF1, CMV_sero, CMV, CD4_CD8, CD8_CD4, CD8M_N, CD4M_N, CDM_N) %>%
-  group_by(sex, RACE) %>%
+ss<- df %>% select(race, sex, age) %>%
+  group_by(sex, race) %>%
   summarise(Count=n(),
-            Mean.Age = mean(R13AGEY_E))
-summarystat
+            Mean.Age = mean(age))
+##Male/female other are n=65/95
+ss2 <- df %>% select(race, limits, age) %>%
+  group_by(race, limits) %>%
+  summarise(Count=n(), 
+            Mean.age=mean(age))
+##Reported limits/did not other are n<100
+ss3 <- df %>% select(race, limits, sex, age) %>%
+  group_by(race, limits,sex) %>%
+  summarise(Count=n(), 
+            Mean.age=mean(age))
+###Could we stratify on three levels (race, sex, and reported limitations)?
+###I think it is better to stratify on sex and race, then control for disability 
 
 ###Assess correlation of POI variables 
-data_c <- data_w %>% select(p, h, c, lth, ltp, nd)
-model.matrix(~0+., data=data_c) %>% cor(use="pairwise.complete.obs") %>%
+df_c <- df %>% select(p, h, cz, lth, ltp, nd)
+model.matrix(~0+., data=df_c) %>% cor(use="pairwise.complete.obs") %>%
   ggcorrplot(show.diag = F, type="lower", lab=TRUE, lab_size=2)
-###Seemingly a strong correlation between prison/homelessness, long-term-hospitalization and long-term-pysch 
+###Strongest correlations between prison & homelessness, long-term-hospitalization & long-term-pysch 
 
 ###Assessing correlation of limitations and POI
-data_c <- data %>% select(LIMIT, p, h, c, lth, ltp, nd) 
-model.matrix(~0+., data=data_c) %>% cor(use="pairwise.complete.obs") %>%
+df_c2 <- df %>% select(fl, p, h, cz, lth, ltp, nd) 
+model.matrix(~0+., data=df_c2) %>% cor(use="pairwise.complete.obs") %>%
   ggcorrplot(show.diag = F, type="lower", lab=TRUE, lab_size=2)
 
 
-###Assessing missing-ness in:
-###Outcome: (None, as we selected for full outcome data)
-data%>%select(IL6, CRP, TNF1, CMV_sero, CMV, CD4_CD8, CD8_CD4, CD8M_N, CD4M_N, CDM_N)%>%
-  tbl_summary()
-###Con founders
-data %>% select(RACE, sex, LIMIT, limits)%>%
-  tbl_summary(type=everything()~"categorical") 
-###POI
-data %>% select(PRISON, UNHOUSED, LTHOSP, LTPSYCH, COMBAT, NATDIST, cumlative_score) %>%
-  tbl_summary(type=everything()~"categorical") %>%
-  modify_footnote(all_stat_cols()~"n(%), 1=Yes 2=No")
-###Effect Modifiers
-data %>% select(R13AGEY_E, SMOKE, RAEDUC, RAEDYRS, parent_ses, R13SHLTC, R13HLTC, R13CONDE, R13BMI, R13CESD) %>%
-  tbl_summary()
+
 
 ###Outcomes x Confounders
-data%>%select(RACE,IL6, CRP, TNF1, CMV, CD4_CD8, CD8_CD4, CD8M_N, CD4M_N, CDM_N)%>%
-  mutate(RACE=factor(RACE, levels = c("White", "Black", "Hispanic Other", "Not hispanic Other", "Missing")))%>%
-  tbl_summary(by=RACE)%>%
-  add_p() %>%
+df %>% select(race, IL6, CRP, TNF1, CMV, CD4_CD8, CD8_CD4, CD8M_N, CD4M_N, CDM_N)%>%
+  tbl_summary(by=race)%>%
+  add_p()%>%
   bold_p(t=0.05)
 
-data%>%select(sex,IL6, CRP, TNF1, CMV, CD4_CD8, CD8_CD4, CD8M_N, CD4M_N, CDM_N)%>%
+
+df%>%select(sex,IL6, CRP, TNF1, CMV, CD4_CD8, CD8_CD4, CD8M_N, CD4M_N, CDM_N)%>%
   tbl_summary(by=sex)%>%
   add_p() %>%
   bold_p(t=0.05)
 
-data_noNA%>%select(limits,IL6, CRP, TNF1, CMV, CD4_CD8, CD8_CD4, CD8M_N, CD4M_N, CDM_N)%>%
-  tbl_summary(by=LIMIT)%>%
+df%>%select(limits,IL6, CRP, TNF1, CMV, CD4_CD8, CD8_CD4, CD8M_N, CD4M_N, CDM_N)%>%
+  tbl_summary(by=limits)%>%
   add_p() %>%
   bold_p(t=0.05) ###For when Limits is coded to consider lifetime period when reported (or began)
 
 ###CMV Re activity by confounder 
-data%>%select(sex, CMV_sero) %>%
+df%>%select(sex, CMV_sero) %>%
   tbl_summary(by=sex)%>%
 
 
-data%>%select(LIMIT, CMV_sero) %>%
-  tbl_summary(by=LIMIT)
+df%>%select(limits, CMV_sero) %>%
+  tbl_summary(by=limits)
 
-data%>%select(RACE, CMV_sero) %>%
-  tbl_summary(by=RACE)
+df%>%select(race, CMV_sero) %>%
+  tbl_summary(by=race)
 
 ###POI x Confounders
-data %>% select(RACE, PRISON, UNHOUSED, LTHOSP, LTPSYCH, COMBAT, NATDIST, cumlative_score) %>%
-  mutate(RACE=factor(RACE, levels = c("White", "Black", "Hispanic Other", "Not hispanic Other", "Missing")))%>%
-  tbl_summary(by=RACE) %>%
+df %>% select(race, prison, homeless, combatzone,  CumlativeScore_red) %>%
+  tbl_summary(by=race) %>%
   add_p(test= everything()~"chisq.test")
 
-data %>% select(sex, PRISON, UNHOUSED, LTHOSP, LTPSYCH, COMBAT, NATDIST, cumlative_score) %>%
+data %>% select(sex, prison, homeless, combatzone,  CumlativeScore_red) %>%
   tbl_summary(by=sex) %>%
   add_p(test= everything()~"chisq.test")
 
-data_noNA %>% select(limit, PRISON, UNHOUSED, LTHOSP, LTPSYCH, COMBAT, NATDIST, cumlative_score) %>%
-  tbl_summary(by=limit)%>%
+df %>% select(limits, prison, homeless, combatzone,  CumlativeScore_red) %>%
+  tbl_summary(by=limits)%>%
   add_p(test= everything()~"chisq.test") 
 
-###Assessing continuous variables and correlation 
+###Assessing continuous variables and correlation (need to work on )
 library(corrplot)
 scatmatrixData = data[,c("IL6", "CRP", "TNF1", "CMV", "CD4_CD8", "CD8_CD4", "CD8M_N", "CD4M_N", "CDM_N", "R13AGEY_E", "RAEDYRS", "parent_ses", "R13BMI", "R13SHLTC", "R13HLTC", "R13CONDE", "R13CESD")]
 panel.hist <- function(x, ...)

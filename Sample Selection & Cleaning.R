@@ -57,7 +57,7 @@ tracker06_16 <- tracker %>% filter(KIWWAVE == 1 | LIWWAVE == 1 | MIWWAVE == 1 | 
 nrow(tracker06_16)
 
 ### Select those who completed 2012 or 2014 HRS Core and were eligible for LBS
-lbs2012_elig <- merge( (hrs12_lbs[which(hrs12_lbs$NLBELIG == 1),]), (tracker06_16[which(tracker06_16$NIWWAVE== 1),]), by=c("HHID", "PN"))
+lbs2012_elig <-merge( (hrs12_lbs[which(hrs12_lbs$NLBELIG == 1),]), (tracker06_16[which(tracker06_16$NIWWAVE== 1),]), by=c("HHID", "PN"))
 nrow(lbs2012_elig)
 
 lbs2014_elig <- merge((hrs14_lbs[which(hrs14_lbs$OLBELIG ==1),]), (tracker06_16[which(tracker06_16$OIWWAVE ==1),]), by=c("HHID", "PN"))
@@ -78,7 +78,7 @@ nrow(trackerlbs_lhs)
 
 
 ##Now select from above for VBS eligible -> consented -> complete and valid
-##Must create variable as merging create four
+##Must create variable as merging created multiple 
 trackerlbs_lhs$VBS16ELIG = ifelse(trackerlbs_lhs$VBS16ELIG.x == 1 | trackerlbs_lhs$VBS16ELIG.y == 1, 1, 0)
 trackerlbs_lhs$VBS16CONSENT = ifelse(trackerlbs_lhs$VBS16CONSENT.x == 1 | trackerlbs_lhs$VBS16CONSENT.y == 1, 1, 0)
 trackerlbs_lhs$VBS16COMPLETE = ifelse(trackerlbs_lhs$VBS16COMPLETE.x == 1 | trackerlbs_lhs$VBS16COMPLETE.y == 1, 1, 0)
@@ -101,7 +101,6 @@ tracker_final <- trackerlbs_lhs_vbs[which(trackerlbs_lhs_vbs$ZEROWGT == 1),]
 nrow(tracker_final)
 
 ###Now create data set with full VBS data + tracker, then select for cases with complete outcome data
-###Should we also select for those with complete POI data? (Natural disaters has alot of missing data)
 d1= merge(vbs, vbsfcyto, by=c("HHID", "PN"))
 d2 = merge(d1, vbs_sup, by=c("HHID", "PN"))
 vbs_tracker = merge(d2, tracker_final, by=c("HHID", "PN"))
@@ -198,44 +197,27 @@ nrow(data[which((data$homeless_lhs == "Yes" | data$homeless_lbs == "Yes") & data
 nrow(data[which((data$homeless_lhs == "Yes" | data$homeless_lbs == "Yes") & is.na(data$homeless)),]) 
 nrow(data[which((data$homeless_lbs == "No" | data$homeless_lhs == "No") & is.na(data$homeless)),])
 
-###Creating categorical for missing (aids in exploratory)
-data$PRISON= ifelse(is.na(data$prison), "Missing", data$prison)
-data$UNHOUSED= ifelse(is.na(data$homeless), "Missing", data$homeless)
-data$LTHOSP= ifelse(is.na(data$long_term_hospital), "Missing", factor(data$long_term_hospital))
-data$LTPSYCH=ifelse(is.na(data$long_term_pysch), "Missing", data$long_term_pysch)
-data$COMBAT=ifelse(is.na(data$combatzone), "Missing", data$combatzone)
-data$NATDIST=ifelse(is.na(data$naturaldisater), "Missing", data$naturaldisater)
 
-###Create cumulative trauma score
-data$o = ifelse(data$orphanage == "Yes", 1, 0)
-data$f = ifelse(data$foster == "Yes", 1, 0)
-data$p = ifelse(data$prison =="Yes", 1, 0)
-data$lth = ifelse(data$long_term_hospital == "Yes", 1, 0)
-data$c = ifelse(data$combatzone == "Yes", 1, 0)
-data$h = ifelse(data$homeless == "Yes", 1, 0)
-data$ltp = ifelse(data$long_term_pysch == "Yes", 1, 0)
-data$nd = ifelse(data$naturaldisater == "Yes", 1, 0)
-data$cumlative_score = rowSums(data[,c("o","f","p","lth","c","h","ltp","nd")], na.rm=TRUE)
+###Cumulative trauma score for analysis 
+data$p =  ifelse(data$prison =="No", 0, 1)
+data$h = ifelse(data$homeless =="No" , 0, 1)
+data$cz = ifelse(data$combatzone =="No", 0, 1)
+data$lth = ifelse(data$long_term_hospital == "No", 0, 1)
+data$ltp = ifelse(data$long_term_pysch == "No", 0, 1)
+data$nd = ifelse(data$naturaldisater =="No", 0, 1)
+data$CumlativeScore = rowSums(data[,c("p", "h", "cz", "lth", "ltp", "nd")], na.rm=TRUE)
+data$CumlativeScore_red = rowSums(data[,c("p", "h", "cz")], na.rm=TRUE)
 
-
-###Cleaning and recoding effect modifiers/confounders
-
-data$sex1 = ifelse(data$RAGENDER == 1, "Male", "Female")
-data$sex = ifelse(is.na(data$sex1), "Missing", data$sex1) ##Have missing labeled
-data$hispanic1 = ifelse(data$RAHISPAN == 0, "Not hispanic", "Hispanic")
-data$hispanic = ifelse(is.na(data$hispanic1), "Missing", data$hispanic1)
+###Cleaning & Recoding variables to stratify analysis by
+data$sex = ifelse(data$RAGENDER == 1, "Male", "Female")
+data$hispanic = ifelse(data$RAHISPAN == 0, "Not hispanic", "Hispanic")
 
 data <- data %>% mutate(race = case_when(
-  RARACEM == 1 ~ "White",
-  RARACEM == 2 ~ "Black",
-  RARACEM== 3 ~ "Other",
+  RARACEM == 1 & RAHISPAN ==0 ~ "Non hispanic white",
+  RARACEM == 2 & RAHISPAN ==0 ~ "Non hispanic black",
+  RAHISPAN == 1 ~ "Hispanic",
+  RARACEM== 3 & RAHISPAN ==0 ~ "Other",
 ))
-
-data$race1 = ifelse(is.na(data$race), "Missing", data$race)
-data$RACE = ifelse(data$race1=="Other", data$race_ethinicity , data$race1)
-data$race_ethinicity = paste(data$hispanic, data$race)
-data$sex_race = paste(data$sex, data$race)
-
 
 ###Recode Outcome Variables
 
@@ -252,7 +234,7 @@ data$CMV_sero = ifelse((data$PCMVGINT == 1 | data$PCMVGINT == 3), "Yes", "No") #
 data$CMV = ifelse((data$PCMVGINT == 1 | data$PCMVGINT == 3), log( (data$PCMVGE+.001) ), 0) ##CMV=0 if non reactive 
 hist(data$CMV)
 
-
+###T Cell % 
 data$CD4_total = data$PCD4T_PCT + .001
 data$CD8_total = data$PCD8T_PCT + .001
 data$CD4N = data$PCD4N_PCT + .001
@@ -273,7 +255,7 @@ hist(data$CDM_N)
 ###Disability Variable (Use Section M1 or M2-functional limitation as proxy for disability)
 data$yes_limits = ifelse(data$NM002 == 1 | data$NM006 == 1 | data$NM007 == 1 | data$NM008 == 1 | data$OM002==1 | data$OM006==1 | data$OM007==1 | data$OM008==1, "Yes", "No") ##If answers yes to any limitations question, consider yes
 data$no_limits = ifelse(is.na(data$NM002) & is.na(data$NM006) & is.na(data$NM007) & is.na(data$NM008) & is.na(data$OM002) & is.na(data$OM006) & is.na(data$OM007) & is.na(data$OM008), NA, "No") ###Recode so anyone who answered gets a no, anyone with no answers gets NA
-data$limits = ifelse(is.na(data$yes_limits), data$no_limits, data$yes_limits) ###This variable states whether or not they reported disability 
+data$limits = ifelse(is.na(data$yes_limits), data$no_limits, data$yes_limits) ###This variable states whether or not they reported disability<--one we will use 
 
 
 data$limitation_lifelong = ifelse(data$limits == "Yes" & (data$OM009==9995 | data$NM009==9995), "Yes", "No") ###Determines whether limitation from birth 
@@ -290,42 +272,90 @@ data$limitation_childhood = ifelse(data$limit_yearv4 < 18, "Yes", "No")
 data$limit_time = ifelse(data$limitation_lifelong == "Yes" | data$limitation_childhood =="Yes", "Childhood", "Adult")
 data$limit_time2 = ifelse(is.na(data$limit_time) & is.na(data$limitation_lifelong) & data$limitation_childhood > 18, "Adult", data$limit_time)
 data$limit=ifelse(is.na(data$limit_time2), data$limits, data$limit_time2)
-data$LIMIT = ifelse(is.na(data$limit), "Missing", data$limit)
+
 
 ###Variable Cleaning & Histograms for Effect Modifiers
-
-data$age = scale(data$R13AGEY_E, scale=FALSE) ###? Use scaled age or non scaled (hist appear same, but interpretations differ)
-
-hist(data$age)
-hist(data$R13AGEY_E)
-
+data$age = data$R13AGEY_E ##Using wave 13 as this corresponds to when VBS data collected
 nrow(data[which(is.na(data$R13AGEY_E)),]) ##No missing age data
 
-###Is this correct way to code for smoking (yes if ever or now smoke?)
-data$smoking_status= ifelse(data$R13SMOKEN == 1 | data$R13SMOKEV == 1, "Yes", "No")
-nrow(data[which(is.na(data$smoking_status)),]) 
-data$SMOKE=ifelse(is.na(data$smoking_status), "Missing", data$smoking_status)
+##Smoking status
+data$smoking_status= ifelse(data$R13SMOKEN == 1 | data$R13SMOKEV == 1, "Yes", "No") ##Yes if ever or currently smokes, No if never reported smoking 
 
 ###For parent SES, use cumulative of mom and dads years of education 
-data$pses1 = ifelse(is.na(data$RAMEDUC), data$RAFEDUC, data$RAMEDUC+data$RAFEDUC)
-data$parent_ses = ifelse(is.na(data$pses1) & is.na(data$RAFEDUC), data$RAMEDUC, data$pses1) ##final variable
+data$ped1 = ifelse((data$RAFEDUC > data$RAMEDUC), data$RAFEDUC, (ifelse(data$RAFEDUC < data$RAMEDUC, data$RAMEDUC, data$RAFEDUC)))
+data$ped2 = ifelse(!is.na(data$ped1), data$ped1, (ifelse(!is.na(data$RAMEDUC), data$RAMEDUC, (ifelse(!is.na(data$RAFEDUC), data$RAFEDUC, NA)))))
+data$parents_ed = ifelse(data$ped2 <8, "Less than 8 years", (ifelse(data$ped2<11, "8-11", ifelse(data$ped2<=12, "HS Graduate", "Beyond HS"))))
+data <- data %>% mutate(parent_edu = case_when(
+  ped2 <8 ~ "<8", 
+))
+data$parents_ed = rowSums(data[,c("RAMEDUC", "RAFEDUC")], na.rm = TRUE)
+
+###Respondant SES
+data <- data %>% mutate(education = case_when(
+  RAEDUC == 1  ~ "Less than High School",
+  RAEDUC == 3 | RAEDUC ==2 ~ "High School Graduate or GED",
+  RAEDUC== 4 ~ "Some College",
+  RAEDUC == 5 ~ "College or beyond",
+))
+
+##Should we collapse ged and high school graduate? Thinking no?
+data$wealth = quantcut(data$H13ATOTA, q=4, na.rm=T) 
+###turned into quantile factor variable 
+
+###Recent Health (Adult/current health)
+data$R13SHLTC ##change in self reported health
+data$R13HLTC ## self report in health change
+data$R13CONDE ## chronic condition index
+data$R13ADLC ## change in ADL
+data$R13CESD ###depression score
+data$bmi = (data$R13BMI-mean(data$R13BMI, na.rm = T))/(sd(data$R13BMI, na.rm=T))
 
 
-hist(data$RAEDYRS) ##Use raedyrs for respondent SES?
+###Creating categorical for missing (aids in exploratory)
+data$PRISON= ifelse(is.na(data$prison), "Missing", data$prison)
+data$UNHOUSED= ifelse(is.na(data$homeless), "Missing", data$homeless)
+data$LTHOSP= ifelse(is.na(data$long_term_hospital), "Missing", factor(data$long_term_hospital))
+data$LTPSYCH=ifelse(is.na(data$long_term_pysch), "Missing", data$long_term_pysch)
+data$COMBAT=ifelse(is.na(data$combatzone), "Missing", data$combatzone)
+data$NATDIST=ifelse(is.na(data$naturaldisater), "Missing", data$naturaldisater)
+data$HISP = ifelse(is.na(data$hispanic), "Missing", data$hispanic)
+data$SEX = ifelse(is.na(data$sex1), "Missing", data$sex1) 
+data$RACE = ifelse(is.na(data$race), "Missing", data$race)
+data$LIMIT = ifelse(is.na(data$limit), "Missing", data$limit)
+data$SMOKE=ifelse(is.na(data$smoking_status), "Missing", data$smoking_status)
 
-###What if we remove all confounders (sex, race, limitations) with missing data?
+###Assessing missing-ness in:
+###Outcome: (None, as we selected for full outcome data)
+data%>%select(IL6, CRP, TNF1, CMV_sero, CMV, CD4_CD8, CD8_CD4, CD8M_N, CD4M_N, CDM_N)%>%
+  tbl_summary()
+###Con founders
+data %>% select(RACE, sex, LIMIT, limits)%>%
+  tbl_summary(type=everything()~"categorical") 
+###POI
+data %>% select(PRISON, UNHOUSED, LTHOSP, LTPSYCH, COMBAT, NATDIST, cumlative_score) %>%
+  tbl_summary(type=everything()~"categorical") %>%
+  modify_footnote(all_stat_cols()~"n(%), 1=Yes 2=No")
+###Effect Modifiers
+data %>% select(R13AGEY_E, SMOKE, RAEDUC, RAEDYRS, parent_ses, R13SHLTC, R13HLTC, R13CONDE, R13BMI, R13CESD) %>%
+  tbl_summary()
+
+###Remove data missing con founders variables (race, sex,age,  or limits)
+df1 <- data[which(!is.na(data$race) & !is.na(data$sex) & !is.na(data$limits) & !is.na(data$age)),]
+nrow(data)-nrow(df1) ###lost 23 participants 
+
+###Remove data missing control variables 
+df2 <-df1[which(!is.na(df1$parents_ed) & !is.na(df1$wealth) & !is.na(df1$education) & !is.na(df1$bmi) &!is.na(df1$R13SHLTC) & !is.na(df1$R13HLTC) & !is.na(df1$R13ADLC) & !is.na(df1$R13CONDE) & !is.na(df1$R13CESD)),]
+nrow(df1)-nrow(df2) ##Lost 69 total 
+
+df<-df2[!(is.na(df2$prison) & is.na(df2$combatzone) & is.na(df2$homeless)),]
+nrow(df2)-nrow(df) ##Lost 20 total 
 
 ###Add sample weights
 install.packages("srvyr")
 library(survey)
 library(srvyr)
-data_w <- data %>% as_survey_design(weights = PVBSWGTR)
+dfw <- df %>% as_survey_design(weights = PVBSWGTR)
 
-save(data, file="TES_data_nowgts.Rdata")
-save(data_w, file="TES_data_wgts.Rdata")
-
-data_cNA = data[which(!is.na(data$sex1) & data$RACE!="Missing" & !is.na(data$limits)),]
-nrow(data_cNA)
-
-data_noNA= data[which(!is.na(data$R13AGEY_E) & !is.na(data$smoking_status) & !is.na(data$RAEDYRS) & !is.na(data$parent_ses) & !is.na(data$R13BMI) & !is.na(data$R13HLTC) & !is.na(data$R13SHLTC) & !is.na(data$R13CONDE) & !is.na(data$R13CESD)),]
-nrow(data_noNA)
+###Save Data 
+save(df, file="Data_nowgts.Rdata")
+save(dfw, file="Data_wgts.Rdata")
