@@ -8,7 +8,7 @@ vbs_data <- read_sav("hrs2016vbs.sav")
 vbsfcyto_data <- read_sas("flocyt2016.sas7bdat")
 vbsimmune <- read_sas("vbs16aa.sas7bdat")
 lhs_data <- read_sas("lhms1517a_r.sas7bdat")
-hrs_data <- read_sas("randhrs1992_2018v1.sas7bdat")
+hrs_data <- read_sas("randhrs1992_2018v2.sas7bdat")
 
 ##Converting to dataframes
 vbs = data.frame(vbs_data)
@@ -119,7 +119,7 @@ vbs_lhs$HHIDPN = str_remove(vbs_lhs$ID, "^0+")
 
 datav1 = merge(vbs_lhs, hrs, by = "HHIDPN", all.x=TRUE) ## This data set contains all participants in final sample
 
-###Needed to add in disability data 
+###Needed to add in functional limitations data 
 m12012$ID = paste0(m12012$HHID, m12012$PN)
 m12012$HHIDPN = str_remove(m12012$ID, "^0+")
 datav2 = merge(datav1, m12012, by= "HHIDPN", all.x=TRUE)
@@ -175,8 +175,6 @@ nrow(data[which(data$homeless14 == "Yes" & data$homeless12 == "No"),])
 data$prison_lbs = factor(data$prisonlbs, c(1,2), labels=c("Yes", "No")) ##change lbs variables into factors
 data$homeless_lbs = factor(data$homelesslbs, c(1,2), labels = c("Yes", "No"))
 View(data[,c("prison_lbs", "prison_lhs", "prison")])
-
-
 ###Create variable to compare LHS and LBS answers
 data$prisonlbslhs = ifelse(data$prison_lbs == data$prison_lhs, "Match", "No Match")
 nrow(data[which(data$prisonlbslhs == "No Match"),]) ###224 Cases data does not match 
@@ -198,7 +196,7 @@ nrow(data[which((data$homeless_lhs == "Yes" | data$homeless_lbs == "Yes") & is.n
 nrow(data[which((data$homeless_lbs == "No" | data$homeless_lhs == "No") & is.na(data$homeless)),])
 
 
-###Cumulative trauma score for analysis 
+###Cumulative trauma score for analysis (did not include orphanage and foster, as I felt too similar to proceed)
 data$p =  ifelse(data$prison =="No", 0, 1)
 data$h = ifelse(data$homeless =="No" , 0, 1)
 data$cz = ifelse(data$combatzone =="No", 0, 1)
@@ -208,7 +206,7 @@ data$nd = ifelse(data$naturaldisater =="No", 0, 1)
 data$CumlativeScore = rowSums(data[,c("p", "h", "cz", "lth", "ltp", "nd")], na.rm=TRUE)
 data$CumlativeScore_red = rowSums(data[,c("p", "h", "cz")], na.rm=TRUE)
 
-###Cleaning & Recoding variables to stratify analysis by
+###Cleaning variables to stratify analysis by
 data$sex = ifelse(data$RAGENDER == 1, "Male", "Female")
 data$hispanic = ifelse(data$RAHISPAN == 0, "Not hispanic", "Hispanic")
 
@@ -220,7 +218,6 @@ data <- data %>% mutate(race = case_when(
 ))
 
 ###Recode Outcome Variables
-
 data$IL6 = log( (data$PIL6 + 0.001) )
 hist(data$IL6)
 
@@ -252,15 +249,14 @@ data$CD8M_N = log((data$CD8M / data$CD8N ))
 data$CDM_N = log( ( (data$CD4M + data$CD8M)/ (data$CD4N+data$CD8N) ))
 hist(data$CDM_N)
 
-###Disability Variable (Use Section M1 or M2-functional limitation as proxy for disability)
+###Use functional limitations as proxy for disability (from section M1 and M2 of HRS Core_)
 data$yes_limits = ifelse(data$NM002 == 1 | data$NM006 == 1 | data$NM007 == 1 | data$NM008 == 1 | data$OM002==1 | data$OM006==1 | data$OM007==1 | data$OM008==1, "Yes", "No") ##If answers yes to any limitations question, consider yes
 data$no_limits = ifelse(is.na(data$NM002) & is.na(data$NM006) & is.na(data$NM007) & is.na(data$NM008) & is.na(data$OM002) & is.na(data$OM006) & is.na(data$OM007) & is.na(data$OM008), NA, "No") ###Recode so anyone who answered gets a no, anyone with no answers gets NA
-data$limits = ifelse(is.na(data$yes_limits), data$no_limits, data$yes_limits) ###This variable states whether or not they reported disability<--one we will use 
+data$funx_limits = ifelse(is.na(data$yes_limits), data$no_limits, data$yes_limits) ###This variable states whether or not they reported disability<--one we will use 
 
+data$limitation_lifelong = ifelse(data$funx_limits == "Yes" & (data$OM009==9995 | data$NM009==9995), "Yes", "No") ###Determines whether limitation from birth 
 
-data$limitation_lifelong = ifelse(data$limits == "Yes" & (data$OM009==9995 | data$NM009==9995), "Yes", "No") ###Determines whether limitation from birth 
-
-###determing age (before or after 18) of disability if not lifelong 
+###Determining age (before or after 18) of functional limitation if not lifelong 
 data$limit_yearv1 = ifelse(data$OM009 < data$NM009, data$OM009, data$NM009)
 data$limit_yearv2 = ifelse(is.na(data$limit_yearv1) & is.na(data$OM009), data$NM009, data$limit_yearv1) 
 data$limit_yearv3 = ifelse(is.na(data$limit_yearv2) & is.na(data$NM009), data$OM009, data$limit_yearv2)
@@ -268,10 +264,16 @@ data$birthyear = ifelse( is.na(data$BIRTHYR.x), data$BIRTHYR.y, data$BIRTHYR.x)
 data$limit_yearv4 = ifelse(data$limit_yearv3<3000, data$limit_yearv3-data$birthyear, data$limit_yearv3)
 data$limitation_childhood = ifelse(data$limit_yearv4 < 18, "Yes", "No")
 
-###Creating Early in Life Disability 
+###Creating variable that determines life course of functional limitation
 data$limit_time = ifelse(data$limitation_lifelong == "Yes" | data$limitation_childhood =="Yes", "Childhood", "Adult")
 data$limit_time2 = ifelse(is.na(data$limit_time) & is.na(data$limitation_lifelong) & data$limitation_childhood > 18, "Adult", data$limit_time)
-data$limit=ifelse(is.na(data$limit_time2), data$limits, data$limit_time2)
+data$limit=ifelse(is.na(data$limit_time2), data$funx_limits, data$limit_time2)
+
+###Yuan Disability Variables (use wave that corresponds to VBS draw)
+View(data[,c("R13MOBILA", "R13LGMUSA","R13ADLA", "R13ADLWA", "R13IADLA", "R13IADLZA")]) ###Possible Indicators of disability 
+data$funxlimitindex = rowSums(data[,c("R13MOBILA", "R13LGMUSA")], na.rm = TRUE) ###functional limitations 
+data$disability = ifelse(data$R13ADLA !=0, 1, 0) ##used 
+
 
 
 ###Variable Cleaning & Histograms for Effect Modifiers
@@ -357,5 +359,6 @@ library(srvyr)
 dfw <- df %>% as_survey_design(weights = PVBSWGTR)
 
 ###Save Data 
-save(df, file="Data_nowgts.Rdata")
-save(dfw, file="Data_wgts.Rdata")
+save(data, file="datafile.Rdata")
+save(df, file="final_data_nowgts.Rdata")
+save(dfw, file="final_data_wgts.Rdata")
