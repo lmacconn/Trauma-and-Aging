@@ -130,6 +130,8 @@ m12014$ID = paste0(m12014$HHID, m12014$PN)
 m12014$HHIDPN = str_remove(m12014$ID, "^0+")
 data = merge(datav3, m12014, by="HHIDPN", all.x=TRUE) ###This is final data set (with disability data included)
 
+save(data, file="datafile_novariableedits.Rdata") ### Save dataframe 
+
 ###Begin Data Cleaning 
 ###Install packages for data cleaning and manipulation 
 install.packages("dplyr")
@@ -218,19 +220,19 @@ data <- data %>% mutate(race = case_when(
 ))
 
 ###Recode Outcome Variables
-data$IL6 = log( (data$PIL6 + 0.001) )
-hist(data$IL6)
+data$IL6 = (data$PIL6 + 0.001) 
+data$logIL6 = log( data$IL6)
+hist(data$logIL6)
 
-data$TNF1 = log( (data$PTNFR1 + .001 ))
-hist(data$TNF1)
+data$TNF1 = (data$PTNFR1 + .001 )
+data$logTNF1 = log( data$TNF1 )
 
-data$CRP= log( (data$PCRP+.001) )
-hist(data$CRP)
-
-data$CMV_sero = ifelse((data$PCMVGINT == 1 | data$PCMVGINT == 3), "Yes", "No") ##Recode seropositivity as yes or no (yes if reactive or boderline reactive)
-data$CMV = ifelse((data$PCMVGINT == 1 | data$PCMVGINT == 3), log( (data$PCMVGE+.001) ), 0) ##CMV=0 if non reactive 
+data$CRP= (data$PCRP+.001) 
+data$logCRP = log(data$CRP)
+data$CMV = ifelse((data$PCMVGINT == 1 | data$PCMVGINT == 3), "Yes", "No") ##Recode seropositivity as yes or no (yes if reactive or boderline reactive)
+data$CMV_S = ifelse((data$PCMVGINT == 1 | data$PCMVGINT == 3), (data$PCMVGE+.001) , 0) ##CMV=0 if non reactive 
 hist(data$CMV)
-
+data$logCMVS = ifelse(data$CMV_S == 0, 0, log(data$CMV_S) )
 ###T Cell % 
 data$CD4_total = data$PCD4T_PCT + .001
 data$CD8_total = data$PCD8T_PCT + .001
@@ -240,14 +242,19 @@ data$CD4M = data$PCD4TEMRA_PCT + .001
 data$CD8M = data$PCD8TEMRA_PCT + .001
 
 ###Creating T Cell Phenotype Outcome Variables 
-data$CD4_CD8 = log((data$CD4_total / data$CD8_total)) 
-hist(data$CD4_CD8)
-data$CD8_CD4 = log( (data$CD8_total / data$CD4_total))
+data$CD4_CD8 = (data$CD4_total / data$CD8_total)
+data$logCD4_CD8 = log(data$CD4_CD8)
 
-data$CD4M_N = log((data$CD4M / data$CD4N ))
-data$CD8M_N = log((data$CD8M / data$CD8N ))
-data$CDM_N = log( ( (data$CD4M + data$CD8M)/ (data$CD4N+data$CD8N) ))
-hist(data$CDM_N)
+data$CD8_CD4 = (data$CD8_total / data$CD4_total)
+data$logCD8_CD4 = log(data$CD8_CD4)
+
+data$CD4M_N = (data$CD4M / data$CD4N )
+data$logCD4M_N = log(data$CD4M_N)
+data$CD8M_N = (data$CD8M / data$CD8N )
+data$logCD8M_N = log(data$CD8M_N)
+data$CDM_N = ( (data$CD4M + data$CD8M)/ (data$CD4N+data$CD8N) )
+data$logCDM_N = log(data$CDM_N)
+
 
 ###Use functional limitations as proxy for disability (from section M1 and M2 of HRS Core_)
 data$yes_limits = ifelse(data$NM002 == 1 | data$NM006 == 1 | data$NM007 == 1 | data$NM008 == 1 | data$OM002==1 | data$OM006==1 | data$OM007==1 | data$OM008==1, "Yes", "No") ##If answers yes to any limitations question, consider yes
@@ -269,11 +276,10 @@ data$limit_time = ifelse(data$limitation_lifelong == "Yes" | data$limitation_chi
 data$limit_time2 = ifelse(is.na(data$limit_time) & is.na(data$limitation_lifelong) & data$limitation_childhood > 18, "Adult", data$limit_time)
 data$limit=ifelse(is.na(data$limit_time2), data$funx_limits, data$limit_time2)
 
-###Yuan Disability Variables (use wave that corresponds to VBS draw)
-View(data[,c("R13MOBILA", "R13LGMUSA","R13ADLA", "R13ADLWA", "R13IADLA", "R13IADLZA")]) ###Possible Indicators of disability 
-data$funxlimitindex = rowSums(data[,c("R13MOBILA", "R13LGMUSA")], na.rm = TRUE) ###functional limitations 
-data$disability = ifelse(data$R13ADLA !=0, 1, 0) ##used 
-
+###Yuan Disability Variables (use wave that corresponds to VBS draw) Do they currently have disability? (Thus Disability would be unknown measure)
+View(data[,c("R13MOBILA", "R13LGMUSA","R13ADL6A", "R13ADL5A", "R13IADL")]) ###Possible Indicators of disability per Yuan
+data$funxlimitindex = rowSums(data[,c("R13MOBILA", "R13LGMUSA")], na.rm = TRUE)###functional limitations at time of blood draw 
+data$disability = ifelse(data$R13ADL6A != 0, 1, 0)
 
 
 ###Variable Cleaning & Histograms for Effect Modifiers
@@ -283,35 +289,36 @@ nrow(data[which(is.na(data$R13AGEY_E)),]) ##No missing age data
 ##Smoking status
 data$smoking_status= ifelse(data$R13SMOKEN == 1 | data$R13SMOKEV == 1, "Yes", "No") ##Yes if ever or currently smokes, No if never reported smoking 
 
-###For parent SES, use cumulative of mom and dads years of education 
+###For parent SES, use parent education as proxy
+###Report education as categorical, reporting only education level of parent with most education
 data$ped1 = ifelse((data$RAFEDUC > data$RAMEDUC), data$RAFEDUC, (ifelse(data$RAFEDUC < data$RAMEDUC, data$RAMEDUC, data$RAFEDUC)))
 data$ped2 = ifelse(!is.na(data$ped1), data$ped1, (ifelse(!is.na(data$RAMEDUC), data$RAMEDUC, (ifelse(!is.na(data$RAFEDUC), data$RAFEDUC, NA)))))
 data$parents_ed = ifelse(data$ped2 <8, "Less than 8 years", (ifelse(data$ped2<11, "8-11", ifelse(data$ped2<=12, "HS Graduate", "Beyond HS"))))
-data <- data %>% mutate(parent_edu = case_when(
-  ped2 <8 ~ "<8", 
-))
-data$parents_ed = rowSums(data[,c("RAMEDUC", "RAFEDUC")], na.rm = TRUE)
+View(data[,c("parents_ed", "ped1", "ped2", "RAMEDUC", "RAFEDUC")])
 
-###Respondant SES
+###Respondant SES (Use education measure and wealth meaure)
 data <- data %>% mutate(education = case_when(
   RAEDUC == 1  ~ "Less than High School",
   RAEDUC == 3 | RAEDUC ==2 ~ "High School Graduate or GED",
   RAEDUC== 4 ~ "Some College",
   RAEDUC == 5 ~ "College or beyond",
 ))
+nrow(is.na(data$wealth)) ###no missing wealth data 
+hist(data$H13ATOTB) ###using ATOTB as it includes values of second home in v2 
+quantile(data$H13ATOTB)
+data$wealth = ifelse(data$H13ATOTB < 38000, "<25%", ifelse(data$H13ATOTB < 182750, "25%-50%", ifelse(data$H13ATOTB < 560000, "50%-75%", ">75%") ))
+###turned into quantile variable 
+View(data[,c("wealth", "H13ATOTB")])
 
-##Should we collapse ged and high school graduate? Thinking no?
-data$wealth = quantcut(data$H13ATOTA, q=4, na.rm=T) 
-###turned into quantile factor variable 
 
 ###Recent Health (Adult/current health)
-data$R13SHLTC ##change in self reported health
-data$R13HLTC ## self report in health change
-data$R13CONDE ## chronic condition index
-data$R13ADLC ## change in ADL
-data$R13CESD ###depression score
+data$SHLTC = as.numeric(as.character(data$R13SHLTC)) ##change in self reported health
+data$HLTC = as.numeric(as.character(data$R13HLTC3)) ## self report in health change
+data$CCI = as.numeric(as.character(data$R13CONDE) )## chronic condition index
+data$CESD = as.numeric(as.character(data$R13CESD))###depression score
+hist(data$R13BMI)
 data$bmi = (data$R13BMI-mean(data$R13BMI, na.rm = T))/(sd(data$R13BMI, na.rm=T))
-
+hist(data$bmi)
 
 ###Creating categorical for missing (aids in exploratory)
 data$PRISON= ifelse(is.na(data$prison), "Missing", data$prison)
@@ -321,9 +328,8 @@ data$LTPSYCH=ifelse(is.na(data$long_term_pysch), "Missing", data$long_term_pysch
 data$COMBAT=ifelse(is.na(data$combatzone), "Missing", data$combatzone)
 data$NATDIST=ifelse(is.na(data$naturaldisater), "Missing", data$naturaldisater)
 data$HISP = ifelse(is.na(data$hispanic), "Missing", data$hispanic)
-data$SEX = ifelse(is.na(data$sex1), "Missing", data$sex1) 
+data$SEX = ifelse(is.na(data$sex), "Missing", data$sex) 
 data$RACE = ifelse(is.na(data$race), "Missing", data$race)
-data$LIMIT = ifelse(is.na(data$limit), "Missing", data$limit)
 data$SMOKE=ifelse(is.na(data$smoking_status), "Missing", data$smoking_status)
 
 ###Assessing missing-ness in:
@@ -331,26 +337,26 @@ data$SMOKE=ifelse(is.na(data$smoking_status), "Missing", data$smoking_status)
 data%>%select(IL6, CRP, TNF1, CMV_sero, CMV, CD4_CD8, CD8_CD4, CD8M_N, CD4M_N, CDM_N)%>%
   tbl_summary()
 ###Con founders
-data %>% select(RACE, sex, LIMIT, limits)%>%
+data %>% select(RACE, sex, funx_limits, disability)%>%
   tbl_summary(type=everything()~"categorical") 
 ###POI
-data %>% select(PRISON, UNHOUSED, LTHOSP, LTPSYCH, COMBAT, NATDIST, cumlative_score) %>%
+data %>% select(PRISON, UNHOUSED, LTHOSP, LTPSYCH, COMBAT, NATDIST, CumlativeScore, CumlativeScore_red) %>%
   tbl_summary(type=everything()~"categorical") %>%
   modify_footnote(all_stat_cols()~"n(%), 1=Yes 2=No")
 ###Effect Modifiers
-data %>% select(R13AGEY_E, SMOKE, RAEDUC, RAEDYRS, parent_ses, R13SHLTC, R13HLTC, R13CONDE, R13BMI, R13CESD) %>%
+data %>% select(R13AGEY_E, SMOKE, education, parents_ed, wealth, R13SHLTC, R13HLTC3, R13CONDE, R13BMI, R13CESD) %>%
   tbl_summary()
 
-###Remove data missing con founders variables (race, sex,age,  or limits)
-df1 <- data[which(!is.na(data$race) & !is.na(data$sex) & !is.na(data$limits) & !is.na(data$age)),]
-nrow(data)-nrow(df1) ###lost 23 participants 
+###Remove data missing confounders variables (race, sex,age, or disability )
+df1 <- data[which(!is.na(data$race) & !is.na(data$sex) & !is.na(data$disability) & !is.na(data$age)),]
+nrow(data)-nrow(df1) ###lost 9 participants 
 
 ###Remove data missing control variables 
-df2 <-df1[which(!is.na(df1$parents_ed) & !is.na(df1$wealth) & !is.na(df1$education) & !is.na(df1$bmi) &!is.na(df1$R13SHLTC) & !is.na(df1$R13HLTC) & !is.na(df1$R13ADLC) & !is.na(df1$R13CONDE) & !is.na(df1$R13CESD)),]
-nrow(df1)-nrow(df2) ##Lost 69 total 
-
+df2 <-df1[which(!is.na(df1$parents_ed) & !is.na(df1$wealth) & !is.na(df1$education) & !is.na(df1$bmi) &!is.na(df1$R13SHLTC) & !is.na(df1$R13HLTC3) & !is.na(df1$R13CONDE) & !is.na(df1$R13CESD) & !is.na(df1$smoking_status) ),]
+nrow(df1)-nrow(df2) ##Lost 373 total  ~5%
+###Remove data missing exposure (main exposures)
 df<-df2[!(is.na(df2$prison) & is.na(df2$combatzone) & is.na(df2$homeless)),]
-nrow(df2)-nrow(df) ##Lost 20 total 
+nrow(df2)-nrow(df) ##Lost 18 total 
 
 ###Add sample weights
 install.packages("srvyr")

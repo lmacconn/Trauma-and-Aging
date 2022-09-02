@@ -1,97 +1,164 @@
 library(ggcorrplot)
 library(ggplot2)
 library(kableExtra)
-###Assessing cell sizes for stratification and general statistics 
-ss<- df %>% select(race, sex, age) %>%
-  group_by(sex, race) %>%
-  summarise(Count=n(),
-            Mean.Age = mean(age))
-##Male/female other are n=65/95
-ss2 <- df %>% select(race, limits, age) %>%
-  group_by(race, limits) %>%
-  summarise(Count=n(), 
-            Mean.age=mean(age))
-##Reported limits/did not other are n<100
-ss3 <- df %>% select(race, limits, sex, age) %>%
-  group_by(race, limits,sex) %>%
-  summarise(Count=n(), 
-            Mean.age=mean(age))
-###Could we stratify on three levels (race, sex, and reported limitations)?
-###I think it is better to stratify on sex and race, then control for disability 
-
 ###Assess correlation of POI variables 
 df_c <- df %>% select(p, h, cz, lth, ltp, nd)
 model.matrix(~0+., data=df_c) %>% cor(use="pairwise.complete.obs") %>%
   ggcorrplot(show.diag = F, type="lower", lab=TRUE, lab_size=2)
 ###Strongest correlations between prison & homelessness, long-term-hospitalization & long-term-pysch 
 
-###Assessing correlation of limitations and POI
-df_c2 <- df %>% select(fl, p, h, cz, lth, ltp, nd) 
+###Assessing correlation of disability and POI
+df_c2 <- df %>% select(disability, p, h, cz, lth, ltp, nd) 
 model.matrix(~0+., data=df_c2) %>% cor(use="pairwise.complete.obs") %>%
-  ggcorrplot(show.diag = F, type="lower", lab=TRUE, lab_size=2)
+  ggcorrplot(show.diag = F, type="lower", lab=TRUE, lab_size=2) ##Correlation matrix
 
-
-
-
-###Outcomes x Confounders
-df %>% select(race, IL6, CRP, TNF1, CMV, CD4_CD8, CD8_CD4, CD8M_N, CD4M_N, CDM_N)%>%
-  tbl_summary(by=race)%>%
-  add_p()%>%
-  bold_p(t=0.05)
-
-
-df%>%select(sex,IL6, CRP, TNF1, CMV, CD4_CD8, CD8_CD4, CD8M_N, CD4M_N, CDM_N)%>%
-  tbl_summary(by=sex)%>%
+###Descriptive table of disability X outcomes & exposures
+###With Weights
+dfw %>% select(disability, logIL6, logCRP, CMV,logCD4_CD8, logCD8_CD4, logCD8M_N, logCD4M_N, logCDM_N, prison, homeless, combatzone)%>%
+  tbl_svysummary(by=disability, 
+                 type = c(CMV~"categorical", disability ~ "categorical", prison ~ "categorical", homeless~ "categorical", combatzone ~ "categorical"),
+                 statistic = list(all_continuous() ~ "{mean} ({sd})",
+                                  all_categorical() ~ "{p}%")
+  ) %>%
+  add_n() %>%
+  add_p()
+###No weights 
+data %>% select(disability, logIL6, logCRP, CMV,logCD4_CD8, logCD8_CD4, logCD8M_N, logCD4M_N, logCDM_N, prison, homeless, combatzone)%>%
+  tbl_summary(by=disability, 
+                 type = c(CMV~"categorical", disability ~ "categorical", prison ~ "categorical", homeless~ "categorical", combatzone ~ "categorical"),
+                 statistic = list(all_continuous() ~ "{mean} ({sd})",
+                                  all_categorical() ~ "{p}%")
+  ) %>%
+  add_n() %>%
   add_p() %>%
-  bold_p(t=0.05)
+  modify_spanning_header(c("stat_1", "stat_2") ~ "**Reported impairment of ADL**")
+###Which to use? Why is the N for the survey design data so large?? (For now moving forward with descriptive stats not including svy weights)
+###Disability seems to impact (we know this)
 
-df%>%select(limits,IL6, CRP, TNF1, CMV, CD4_CD8, CD8_CD4, CD8M_N, CD4M_N, CDM_N)%>%
-  tbl_summary(by=limits)%>%
+##Descriptive table sex X outcomes & exposure
+data %>% select(sex, logIL6, logCRP, CMV,logCD4_CD8, logCD8_CD4, logCD8M_N, logCD4M_N, logCDM_N, prison, homeless, combatzone)%>%
+  tbl_summary(by=sex, 
+              type = c(CMV~"categorical", sex ~ "categorical", prison ~ "categorical", homeless~ "categorical", combatzone ~ "categorical"),
+              statistic = list(all_continuous() ~ "{mean} ({sd})",
+                               all_categorical() ~ "{p}%")
+  ) %>%
+  add_n() %>%
   add_p() %>%
-  bold_p(t=0.05) ###For when Limits is coded to consider lifetime period when reported (or began)
+  modify_spanning_header(c("stat_1", "stat_2") ~ "**Reported Sex**")
+###Sex differences exist among exposure, with females experiencing the traumatic events at a lower rate. 
 
-###CMV Re activity by confounder 
-df%>%select(sex, CMV_sero) %>%
-  tbl_summary(by=sex)%>%
+##Descriptive table race X outcomes & exposure
+data %>% select(race, logIL6, logCRP, CMV,logCD4_CD8, logCD8_CD4, logCD8M_N, logCD4M_N, logCDM_N, prison, homeless, combatzone)%>%
+  tbl_summary(by=race, 
+              type = c(CMV~"categorical", race ~ "categorical", prison ~ "categorical", homeless~ "categorical", combatzone ~ "categorical"),
+              statistic = list(all_continuous() ~ "{mean} ({sd})",
+                               all_categorical() ~ "{p}%")
+  ) %>%
+  add_n() %>%
+  add_p() %>%
+  modify_spanning_header(c("stat_1", "stat_2") ~ "**Race/Ethnicity**")
+###Different race/ethinicites (black hispanic, and other) experience higher rates of incareration and homelessness
+#Interestingly, other also has highest rates of experiencing combat zones, with white next, and then black/hispanic 
+#Data agrees with well documented racial inequites of CMV infections
 
 
-df%>%select(limits, CMV_sero) %>%
-  tbl_summary(by=limits)
+###Summary of full population (without removing missing con founders/controls/exposures)
+data %>% 
+  select(logIL6, logCRP, logTNF1, CMV, logCMVS, logCD4_CD8, logCD8_CD4, logCD8M_N, logCD4M_N, logCDM_N, age, sex, race, disability, prison, homeless, combatzone, parents_ed, education, wealth, R13BMI, HLTC, SHLTC, CCI, CESD, smoking_status) %>%
+  tbl_summary(
+    type = c(CMV~"categorical", disability ~ "categorical", prison ~ "categorical", homeless~ "categorical", combatzone ~ "categorical", smoking_status~ "categorical", HLTC ~ "continuous", SHLTC~"continuous", CCI~ "continuous", CESD~ "continuous"), 
+    statistic = list(all_continuous() ~ "{mean} ({sd})",
+                     all_categorical() ~ "{p}%")
+  ) %>%
+  add_n()
 
-df%>%select(race, CMV_sero) %>%
-  tbl_summary(by=race)
 
-###POI x Confounders
-df %>% select(race, prison, homeless, combatzone,  CumlativeScore_red) %>%
-  tbl_summary(by=race) %>%
-  add_p(test= everything()~"chisq.test")
+###Full summary by prison (25 missing data removed)
+data %>% 
+  select(logIL6, logCRP, logTNF1, CMV, logCMVS, logCD4_CD8, logCD8_CD4, logCD8M_N, logCD4M_N, logCDM_N, age, sex, race, disability, prison, homeless, combatzone, parents_ed, education, wealth, R13BMI, HLTC, SHLTC, CCI, CESD, smoking_status) %>%
+  tbl_summary(by=prison,
+    type = c(CMV~"categorical", disability ~ "categorical", prison ~ "categorical", homeless~ "categorical", combatzone ~ "categorical", smoking_status~ "categorical", HLTC ~ "continuous", SHLTC~"continuous", CCI~ "continuous", CESD~ "continuous"), 
+    statistic = list(all_continuous() ~ "{mean} ({sd})",
+                     all_categorical() ~ "{p}%")
+  ) %>%
+  add_n()%>%
+  add_p(test=list(all_continuous()~"t.test")) %>%
+  modify_spanning_header(c("stat_1", "stat_2") ~ "**Experienced Incareration**")
 
-data %>% select(sex, prison, homeless, combatzone,  CumlativeScore_red) %>%
-  tbl_summary(by=sex) %>%
-  add_p(test= everything()~"chisq.test")
 
-df %>% select(limits, prison, homeless, combatzone,  CumlativeScore_red) %>%
-  tbl_summary(by=limits)%>%
-  add_p(test= everything()~"chisq.test") 
+###Full summary by homeless (404 missing data removed)
+data %>% 
+  select(logIL6, logCRP, logTNF1, CMV, logCMVS, logCD4_CD8, logCD8_CD4, logCD8M_N, logCD4M_N, logCDM_N, age, sex, race, disability, prison, homeless, combatzone, parents_ed, education, wealth, R13BMI, HLTC, SHLTC, CCI, CESD, smoking_status) %>%
+  tbl_summary(by=homeless,
+              type = c(CMV~"categorical", disability ~ "categorical", prison ~ "categorical", homeless~ "categorical", combatzone ~ "categorical", smoking_status~ "categorical", HLTC ~ "continuous", SHLTC~"continuous", CCI~ "continuous", CESD~ "continuous"), 
+              statistic = list(all_continuous() ~ "{mean} ({sd})",
+                               all_categorical() ~ "{p}%")
+  ) %>%
+  add_n()%>%
+  add_p(test=list(all_continuous()~"t.test")) %>%
+  modify_spanning_header(c("stat_1", "stat_2") ~ "**Experienced Homelessness**")
 
-###Assessing continuous variables and correlation (need to work on )
-library(corrplot)
-scatmatrixData = data[,c("IL6", "CRP", "TNF1", "CMV", "CD4_CD8", "CD8_CD4", "CD8M_N", "CD4M_N", "CDM_N", "R13AGEY_E", "RAEDYRS", "parent_ses", "R13BMI", "R13SHLTC", "R13HLTC", "R13CONDE", "R13CESD")]
-panel.hist <- function(x, ...)
-  {
-  usr <- par("usr"); on.exit(par(usr))
-  par(usr = c(usr[1:2], 0, 1.5) )
-  h <- hist(x, plot = FALSE)
-  breaks <- h$breaks; nB <- length(breaks)
-  y <- h$counts; y <- y/max(y)
-  rect(breaks[-nB], 0, breaks[-1], y, col = "cyan", ...)
-}
-pairs(scatmatrixData, pch = 19, diag.panel=panel.hist)
-cormat = cor(scatmatrixData)
-pres <- cor.mtest(scatmatrixData, conf.level = .95)
-corrplot.mixed(cormat, lower.col = "black", number.cex = 1,p.mat = pres$p, sig.level = .05)
+###Full summary by Combat zone (612 missing data removed)
+data %>% 
+  select(logIL6, logCRP, logTNF1, CMV, logCMVS, logCD4_CD8, logCD8_CD4, logCD8M_N, logCD4M_N, logCDM_N, age, sex, race, disability, prison, homeless, combatzone, parents_ed, education, wealth, R13BMI, HLTC, SHLTC, CCI, CESD, smoking_status) %>%
+  tbl_summary(by=combatzone,
+              type = c(CMV~"categorical", disability ~ "categorical", prison ~ "categorical", homeless~ "categorical", combatzone ~ "categorical", smoking_status~ "categorical", HLTC ~ "continuous", SHLTC~"continuous", CCI~ "continuous", CESD~ "continuous"), 
+              statistic = list(all_continuous() ~ "{mean} ({sd})",
+                               all_categorical() ~ "{p}%")
+  ) %>%
+  add_n()%>%
+  add_p(test=list(all_continuous()~"t.test")) %>%
+  modify_spanning_header(c("stat_1", "stat_2") ~ "**Experienced a Combat Zone**")
 
-  
+
+
+###Supplemental Tables
+#Natural Disater X variables (missing 4104 was not collected in 2015 LHMS)
+data %>% 
+  select(logIL6, logCRP, logTNF1, CMV, logCMVS, logCD4_CD8, logCD8_CD4, logCD8M_N, logCD4M_N, logCDM_N, age, sex, race, disability, prison, homeless, combatzone, long_term_hospital, long_term_pysch, naturaldisater, parents_ed, education, wealth, R13BMI, HLTC, SHLTC, CCI, CESD, smoking_status) %>%
+  tbl_summary(by=naturaldisater,
+              type = c(CMV~"categorical", disability ~ "categorical", prison ~ "categorical", homeless~ "categorical", combatzone ~ "categorical", smoking_status~ "categorical", HLTC ~ "continuous", SHLTC~"continuous", CCI~ "continuous", CESD~ "continuous"), 
+              statistic = list(all_continuous() ~ "{mean} ({sd})",
+                               all_categorical() ~ "{p}%")
+  ) %>%
+  add_n()%>%
+  add_p(test=list(all_continuous()~"t.test")) %>%
+  modify_spanning_header(c("stat_1", "stat_2") ~ "**Experienced a Natural Disater**")
+#Nothing really jumps out here to me...possibly due to the data collected? does not encompass whehter experienced personal loss (ie property destruction, death, etc)
+
+#Long term hospital X variables (missing 4104 was not collected in 2015 LHMS, 599 missing)
+data %>% 
+  select(logIL6, logCRP, logTNF1, CMV, logCMVS, logCD4_CD8, logCD8_CD4, logCD8M_N, logCD4M_N, logCDM_N, age, sex, race, disability, prison, homeless, combatzone, long_term_hospital, long_term_pysch, naturaldisater, parents_ed, education, wealth, R13BMI, HLTC, SHLTC, CCI, CESD, smoking_status) %>%
+  tbl_summary(by=long_term_hospital,
+              type = c(CMV~"categorical", disability ~ "categorical", prison ~ "categorical", homeless~ "categorical", combatzone ~ "categorical", smoking_status~ "categorical", HLTC ~ "continuous", SHLTC~"continuous", CCI~ "continuous", CESD~ "continuous"), 
+              statistic = list(all_continuous() ~ "{mean} ({sd})",
+                               all_categorical() ~ "{p}%")
+  ) %>%
+  add_n()%>%
+  add_p(test=list(all_continuous()~"t.test")) %>%
+  modify_spanning_header(c("stat_1", "stat_2") ~ "**Experienced a Hospitilization for Physical condition or illness >1month**")
+#Expected trends with long term hospitalization history and more advanced immune aging profiles 
+
+#Long term pysch related stay X variables (missing 4104 was not collected in 2015 LHMS, 599 missing)
+data %>% 
+  select(logIL6, logCRP, logTNF1, CMV, logCMVS, logCD4_CD8, logCD8_CD4, logCD8M_N, logCD4M_N, logCDM_N, age, sex, race, disability, prison, homeless, combatzone, long_term_hospital, long_term_pysch, naturaldisater, parents_ed, education, wealth, R13BMI, HLTC, SHLTC, CCI, CESD, smoking_status) %>%
+  tbl_summary(by=long_term_pysch,
+              type = c(CMV~"categorical", disability ~ "categorical", prison ~ "categorical", homeless~ "categorical", combatzone ~ "categorical", smoking_status~ "categorical", HLTC ~ "continuous", SHLTC~"continuous", CCI~ "continuous", CESD~ "continuous"), 
+              statistic = list(all_continuous() ~ "{mean} ({sd})",
+                               all_categorical() ~ "{p}%")
+  ) %>%
+  add_n()%>%
+  add_p(test=list(all_continuous()~"t.test")) %>%
+  modify_spanning_header(c("stat_1", "stat_2") ~ "**Experienced a Hospitilization for Psychiartic condition >1month**")
+#Those who have not epxerienced care seeminly have worse off t cell profiles?
+
+
+
+
+
+
+
+
 
 
 
