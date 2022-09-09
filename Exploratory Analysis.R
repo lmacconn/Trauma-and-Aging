@@ -52,7 +52,7 @@ data %>% select(race, logIL6, logCRP, CMV,logCD4_CD8, logCD8_CD4, logCD8M_N, log
   tbl_summary(by=race, 
               type = c(CMV~"categorical", race ~ "categorical", prison ~ "categorical", homeless~ "categorical", combatzone ~ "categorical"),
               statistic = list(all_continuous() ~ "{mean} ({sd})",
-                               all_categorical() ~ "{p}%")
+                               all_categorical() ~ "{p}% ({n})")
   ) %>%
   add_n() %>%
   add_p() %>%

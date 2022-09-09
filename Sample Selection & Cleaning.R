@@ -347,6 +347,8 @@ data %>% select(PRISON, UNHOUSED, LTHOSP, LTPSYCH, COMBAT, NATDIST, CumlativeSco
 data %>% select(R13AGEY_E, SMOKE, education, parents_ed, wealth, R13SHLTC, R13HLTC3, R13CONDE, R13BMI, R13CESD) %>%
   tbl_summary()
 
+
+###Re run starting from here if alter any code above (then resave data set)
 ###Remove data missing confounders variables (race, sex,age, or disability )
 df1 <- data[which(!is.na(data$race) & !is.na(data$sex) & !is.na(data$disability) & !is.na(data$age)),]
 nrow(data)-nrow(df1) ###lost 9 participants 
@@ -364,7 +366,8 @@ library(survey)
 library(srvyr)
 dfw <- df %>% as_survey_design(weights = PVBSWGTR)
 
-###Save Data 
-save(data, file="datafile.Rdata")
-save(df, file="final_data_nowgts.Rdata")
-save(dfw, file="final_data_wgts.Rdata")
+###Save data 
+write.csv(dfw, file = "dfw.csv")
+write.csv(data, file="090922data.csv")
+write.csv(df, file="df.csv")
+
