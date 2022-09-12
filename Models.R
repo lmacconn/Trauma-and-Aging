@@ -1,4 +1,9 @@
 ###Create subset of data for stratified analysis 
+
+library(srvyr)
+library(survey)
+df = read.csv("df.csv")
+dfw <- df %>% as_survey_design(weights = PVBSWGTR)
 df_black <- subset(dfw, race == "Non hispanic black")
 df_women <- subset(dfw, sex == "Female")
 df_men <- subset(dfw, sex == "Male")
@@ -8,32 +13,96 @@ df_other <- subset(dfw, race == "Other")
 
 ##packages needed 
 install.packages("jtools")
+install.packages("jstable")
 library(jtools)
 library(survey)
-install.packages("sjPlot")
-library(sjPlot)
-install.packages("sjmisc")
-library(sjmisc)
-library(sjlabelled)
+library(jstable)
+install.packages("modelsummary")
+library(modelsummary)
+library(broom)
+library(dplyr)
+
 
 ##Model 1: Adjusting only for age and gender, stratify on race (would stratify on sex, however, cell sizes are too small)
 m1pf = svyglm(logIL6~prison+age+sex, data=df, design=dfw)
+x = as.data.frame(summary(m1pf))
 m1pw= svyglm(logIL6~prison+age+sex,data=df, design = df_white)
+tbl_regression(m1pw, exponentiate = TRUE)
 m1pb = svyglm(logIL6~prison+age+sex,data=df, design = df_black)
+tbl_regression(m1pb, exponentiate = TRUE)
 m1ph =svyglm(logIL6~prison+age+sex,data=df, design = df_hispanic)
+tbl_regression(m1ph, exponentiate = TRUE)
 m1po =svyglm(logIL6~prison+age+sex,data=df, design = df_other)
+tbl_regression(m1po, exponentiate = TRUE)
+
 
 m1hf = svyglm(logIL6~homeless+age+sex, data=df, design=dfw)
+tbl_regression(m1hf, exponentiate = TRUE)
 m1hw= svyglm(logIL6~homeless+age+sex,data=df, design = df_white)
+tbl_regression(m1hw, exponentiate = TRUE)
 m1hb = svyglm(logIL6~homeless+age+sex,data=df, design = df_black)
+tbl_regression(m1hb, exponentiate = TRUE)
 m1hh =svyglm(logIL6~homeless+age+sex,data=df, design = df_hispanic)
+tbl_regression(m1hh, exponentiate = TRUE)
 m1ho =svyglm(logIL6~homeless+age+sex,data=df, design = df_other)
-
+tbl_regression(m1ho, exponentiate = TRUE)
+library(gtsummary)
 m1cf = svyglm(logIL6~combatzone+age+sex, data=df, design=dfw)
+tbl_regression(m1cf, exponentiate = TRUE)
 m1cw= svyglm(logIL6~combatzone+age+sex,data=df, design = df_white)
+tbl_regression(m1cw, exponentiate = TRUE)
 m1cb = svyglm(logIL6~combatzone+age+sex,data=df, design = df_black)
+tbl_regression(m1cb, exponentiate = TRUE)
 m1ch =svyglm(logIL6~combatzone+age+sex,data=df, design = df_hispanic)
+tbl_regression(m1ch, exponentiate = TRUE)
 m1co =svyglm(logIL6~combatzone+age+sex,data=df, design = df_other)
+p = tbl_regression(m1co, exponentiate = TRUE)
+
+###alternate approach, get model data into data.frame
+model1 <- summary(m1pw)$coefficients[,1] %>% as.data.frame
+w = tbl_merge(tbls=list(y,z,p))
+
+###Trying to write functions to get model data in clean tables 
+models <- list(
+  "Full" = list(
+    m1pf,
+    m1hf,
+    m1cf),
+  "Non Hispanic White" = list(
+    m1pw, 
+    m1hw,
+    m1cw),
+  "Non Hispanic Black" = list(
+    m1pb,
+    m1hb, 
+    m1cb),
+  "Hispanic" = list(
+    m1ph, 
+    m1hh,
+    m1ch),
+  "Other" = list(
+    m1po,
+    m1ho, 
+    m1co))
+tidy_model <- function(model_list){
+  tidy_full <- broom::tidy(model_list[[1]])
+  tidy_white <- broom::tidy(model_list[[2]])
+  tidy_black <- broom::tidy(model_list[[3]])
+  tidy_hispanic <- broom::tidy(model_list[[4]])
+  tidy_other <- broom::tidy(model_list[[5]])
+  tidy_full$group <- "Full"
+  tidy_white$group <- "White"
+  tidy_black$group <- "Black"
+  tidy_hispanic$group <- "Hispanic"
+  tidy_other$group <- "Other"
+  ti <- bind_rows(tidy_full, tidy_white, tidy_black, tidy_hispanic, tidy_other)
+  gl <- data.frame("N"=stats::nobs(model_list[[1]]))
+  out <- list(tidy=ti, glance=gl)
+  class(out)
+  return(out)
+}
+models <- lapply(models, tidy_model)
+
 
 m1.2pf = svyglm(logTNF1~prison+age+sex, data=df, design=dfw)
 m1.2pw= svyglm(logTNF1~prison+age+sex,data=df, design = df_white)
@@ -52,7 +121,7 @@ m1.2cw= svyglm(logTNF1~combatzone+age+sex,data=df, design = df_white)
 m1.2cb = svyglm(logTNF1~combatzone+age+sex,data=df, design = df_black)
 m1.2ch =svyglm(logTNF1~combatzone+age+sex,data=df, design = df_hispanic)
 m1.2co =svyglm(logTNF1~combatzone+age+sex,data=df, design = df_other)
-##ran up to here 
+
 
 m1.3pf = svyglm(logCRP~prison+age+sex, data=df, design=dfw)
 m1.3pw= svyglm(logCRP~prison+age+sex,data=df, design = df_white)
@@ -90,85 +159,6 @@ m1.4cb = svyglm(logCMVS~combatzone+age+sex,data=df, design = df_black)
 m1.4ch =svyglm(logCMVS~combatzone+age+sex,data=df, design = df_hispanic)
 m1.4co =svyglm(logCMVS~combatzone+age+sex,data=df, design = df_other)
 
-m1T1pf = svyglm(logCD4_CD8~prison+age+sex, data=df, design=dfw)
-m1T1pw= svyglm(logCD4_CD8~prison+age+sex,data=df, design = df_white)
-m1T1pb = svyglm(logCD4_CD8~prison+age+sex,data=df, design = df_black)
-m1T1ph =svyglm(logCD4_CD8~prison+age+sex,data=df, design = df_hispanic)
-m1T1po =svyglm(logCD4_CD8~prison+age+sex,data=df, design = df_other)
-
-m1T1hf = svyglm(logCD4_CD8~homeless+age+sex, data=df, design=dfw)
-m1T1hw= svyglm(logCD4_CD8~homeless+age+sex,data=df, design = df_white)
-m1T1hb = svyglm(logCD4_CD8~homeless+age+sex,data=df, design = df_black)
-m1T1hh =svyglm(logCD4_CD8~homeless+age+sex,data=df, design = df_hispanic)
-m1T1ho =svyglm(logCD4_CD8~homeless+age+sex,data=df, design = df_other)
-
-m1T1cf = svyglm(logCD4_CD8~combatzone+age+sex, data=df, design=dfw)
-m1T1cw= svyglm(logCD4_CD8~combatzone+age+sex,data=df, design = df_white)
-m1T1cb = svyglm(logCD4_CD8~combatzone+age+sex,data=df, design = df_black)
-m1T1ch =svyglm(logCD4_CD8~combatzone+age+sex,data=df, design = df_hispanic)
-m1T1co =svyglm(logCD4_CD8~combatzone+age+sex,data=df, design = df_other)
-
-m1T2pf = svyglm(logCD4M_N~prison+age+sex, data=df, design=dfw)
-m1T2pw= svyglm(logCD4M_N~prison+age+sex,data=df, design = df_white)
-m1T2pb = svyglm(logCD4M_N~prison+age+sex,data=df, design = df_black)
-m1T2ph =svyglm(logCD4M_N~prison+age+sex,data=df, design = df_hispanic)
-m1T2po =svyglm(logCD4M_N~prison+age+sex,data=df, design = df_other)
-
-m1T2hf = svyglm(logCD4M_N~homeless+age+sex, data=df, design=dfw)
-m1T2hw= svyglm(logCD4M_N~homeless+age+sex,data=df, design = df_white)
-m1T2hb = svyglm(logCD4M_N~homeless+age+sex,data=df, design = df_black)
-m1T2hh =svyglm(logCD4M_N~homeless+age+sex,data=df, design = df_hispanic)
-m1T2ho =svyglm(logCD4M_N~homeless+age+sex,data=df, design = df_other)
-
-m1T2cf = svyglm(logCD4M_N~combatzone+age+sex, data=df, design=dfw)
-m1T2cw= svyglm(logCD4M_N~combatzone+age+sex,data=df, design = df_white)
-m1T2cb = svyglm(logCD4M_N~combatzone+age+sex,data=df, design = df_black)
-m1T2ch =svyglm(logCD4M_N~combatzone+age+sex,data=df, design = df_hispanic)
-m1T2co =svyglm(logCD4M_N~combatzone+age+sex,data=df, design = df_other)
-
-m1T3pf = svyglm(logCD8M_N~prison+age+sex, data=df, design=dfw)
-m1T3pw= svyglm(logCD8M_N~prison+age+sex,data=df, design = df_white)
-m1T3pb = svyglm(logCD8M_N~prison+age+sex,data=df, design = df_black)
-m1T3ph =svyglm(logCD8M_N~prison+age+sex,data=df, design = df_hispanic)
-m1T3po =svyglm(logCD8M_N~prison+age+sex,data=df, design = df_other)
-
-m1T3hf = svyglm(logCD8M_N~homeless+age+sex, data=df, design=dfw)
-m1T3hw= svyglm(logCD8M_N~homeless+age+sex,data=df, design = df_white)
-m1T3hb = svyglm(logCD8M_N~homeless+age+sex,data=df, design = df_black)
-m1T3hh =svyglm(logCD8M_N~homeless+age+sex,data=df, design = df_hispanic)
-m1T3ho =svyglm(logCD8M_N~homeless+age+sex,data=df, design = df_other)
-
-m1T3cf = svyglm(logCD8M_N~combatzone+age+sex, data=df, design=dfw)
-m1T3cw= svyglm(logCD8M_N~combatzone+age+sex,data=df, design = df_white)
-m1T3cb = svyglm(logCD8M_N~combatzone+age+sex,data=df, design = df_black)
-m1T3ch =svyglm(logCD8M_N~combatzone+age+sex,data=df, design = df_hispanic)
-m1T3co =svyglm(logCD8M_N~combatzone+age+sex,data=df, design = df_other)
-
-m1T4pf = svyglm(logCDM_N~prison+age+sex, data=df, design=dfw)
-m1T4pw= svyglm(logCDM_N~prison+age+sex,data=df, design = df_white)
-m1T4pb = svyglm(logCDM_N~prison+age+sex,data=df, design = df_black)
-m1T4ph =svyglm(logCDM_N~prison+age+sex,data=df, design = df_hispanic)
-m1T4po =svyglm(logCDM_N~prison+age+sex,data=df, design = df_other)
-
-m1T4hf = svyglm(logCDM_N~homeless+age+sex, data=df, design=dfw)
-m1T4hw= svyglm(logCDM_N~homeless+age+sex,data=df, design = df_white)
-m1T4hb = svyglm(logCDM_N~homeless+age+sex,data=df, design = df_black)
-m1T4hh =svyglm(logCDM_N~homeless+age+sex,data=df, design = df_hispanic)
-m1T4ho =svyglm(logCDM_N~homeless+age+sex,data=df, design = df_other)
-
-m1T4cf = svyglm(logCDM_N~combatzone+age+sex, data=df, design=dfw)
-m1T4cw= svyglm(logCDM_N~combatzone+age+sex,data=df, design = df_white)
-m1T4cb = svyglm(logCDM_N~combatzone+age+sex,data=df, design = df_black)
-m1T4ch =svyglm(logCDM_N~combatzone+age+sex,data=df, design = df_hispanic)
-m1T4co =svyglm(logCDM_N~combatzone+age+sex,data=df, design = df_other)
-
-               
+model1 = data.frame(Data = 0, Outcome,  )
 
 
-
-
-###Attempt at writing functions
-regression <- function(Y, X, A){
-  svyglm(paste(Y, "~", X, "+", A), design=dfw, data=df)
-}
-regression()

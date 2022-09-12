@@ -1,6 +1,14 @@
 library(ggcorrplot)
 library(ggplot2)
 library(kableExtra)
+data = read.csv("090922data.csv")
+library(dplyr)
+df$race_sex = paste(df$race, df$sex)
+df$race_sex = factor(df$race_sex, levels=c("Non hispanic white Female", "Non hispanic white Male", "Non hispanic black Female", "Non hispanic black Male", "Hispanic Female", "Hispanic Male", "Other Female", "Other Male"))
+df %>% select(race_sex, prison, homeless, combatzone, naturaldisater, long_term_hospital, long_term_pysch) %>%
+  tbl_summary(by=race_sex,
+              type=c(prison ~ "categorical", homeless~ "categorical", combatzone ~ "categorical", naturaldisater ~"categorical", long_term_hospital~"categorical", long_term_pysch~"categorical"))
+
 ###Assess correlation of POI variables 
 df_c <- df %>% select(p, h, cz, lth, ltp, nd)
 model.matrix(~0+., data=df_c) %>% cor(use="pairwise.complete.obs") %>%
@@ -36,11 +44,11 @@ data %>% select(disability, logIL6, logCRP, CMV,logCD4_CD8, logCD8_CD4, logCD8M_
 ###Disability seems to impact (we know this)
 
 ##Descriptive table sex X outcomes & exposure
-data %>% select(sex, logIL6, logCRP, CMV,logCD4_CD8, logCD8_CD4, logCD8M_N, logCD4M_N, logCDM_N, prison, homeless, combatzone)%>%
+data %>% select(sex, race, logIL6, logCRP, CMV,logCD4_CD8, logCD8_CD4, logCD8M_N, logCD4M_N, logCDM_N, prison, homeless, combatzone)%>%
   tbl_summary(by=sex, 
               type = c(CMV~"categorical", sex ~ "categorical", prison ~ "categorical", homeless~ "categorical", combatzone ~ "categorical"),
               statistic = list(all_continuous() ~ "{mean} ({sd})",
-                               all_categorical() ~ "{p}%")
+                               all_categorical() ~ "{p}% ({n})")
   ) %>%
   add_n() %>%
   add_p() %>%
