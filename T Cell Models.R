@@ -6,6 +6,8 @@ library(dplyr)
 library(jtools)
 library(survey)
 library(jstable)
+library(gtsummary)
+setwd("~/Desktop/Data Files")
 df = read.csv("df.csv")
 dfw <- df %>% as_survey_design(weights = PVBSWGTR)
 df_black <- subset(dfw, race == "Non hispanic black")
@@ -116,6 +118,21 @@ combat_CDM_N = tbl_merge(tbls=list(c4_full, c4_white, c4_black, c4_hispanic, c4_
 
 CDM_N = tbl_stack(tbls=list(prison_CDM_N, homeless_CDM_N, combat_CDM_N))
 
+T_Cell_Model_1 = tbl_stack(tbls=list(CD8_CD4, CD4M_N, CD8M_N, CDM_N), group_header = c("CD8:CD4", "CD4 Memory:Naive", "CD8 Memory:Naive", "Total Memory:Naive") )
+
+install.packages("flextable")
+library(flextable)
+install.packages("officer")
+library(officer)
+tcell_m1 = as_flex_table(T_Cell_Model_1)
+sect_properties <- prop_section(
+  page_size = page_size(orient = "landscape",
+                        width = 8.3, height = 11.7),
+  type = "continuous",
+  page_margins = page_mar()
+)
+
+save_as_docx(tcell_m1, path="~/Desktop/Data Files/idea.docx", pr_section = sect_properties)
 
 
 
